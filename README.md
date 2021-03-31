@@ -48,4 +48,3 @@ model_Net:: SP_Net <==> dataset::SalientObjDataset or dataset::SuperpixelDataset
 https://pytorch.org/tutorials/beginner/former_torchies/parallelism_tutorial.html#multi-gpu-examples
 
 2. SP_Net
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
