@@ -195,7 +195,6 @@ class SalientObjDataset(data.Dataset):
         if not len(glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))): # is empty
           dep_path = 0
           dep_img = PIL.Image.new('L',gt_img.size) #torch.zeros(gt_data.shape) #transforms.ToPILImage()( np.zeros((gt_img.size[1],gt_img.size[0]),dtype=np.float32) )
-<<<<<<< HEAD
           
           # superpixel label map
           superpixel_maps=slic(io.imread(rgb_path))
@@ -213,20 +212,7 @@ class SalientObjDataset(data.Dataset):
 
         # tensor out
         return  img_data, depth_data , gt_data, rgb_path, gt_path, dep_path, img_size, sp_maps
-=======
-        else:
-          dep_path = glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))[0]
-          dep_img = PIL.Image.open(dep_path)
-        
-        depth_data = self.depth_trans_compose(dep_img)
-        
-        img_size=img.size
-        
-        
-        
-        # tensor out
-        return  img_data, depth_data , gt_data, rgb_path, gt_path, dep_path, img_size
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         
         
     def __len__(self):

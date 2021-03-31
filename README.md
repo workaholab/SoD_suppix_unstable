@@ -29,7 +29,6 @@ current mode setting are:
     model = Net3(device,start_EP)
 ```
 
-<<<<<<< HEAD
 ## 2021/3/30
 model_Net:: Net2, Net3 <==> dataset::SalientObjDataset 
   1. add superpixel segmentation labels tensor
@@ -42,10 +41,4 @@ https://pytorch.org/tutorials/beginner/former_torchies/parallelism_tutorial.html
 
 ### Net correctin
 model_Net:: SP_Net <==> dataset::SalientObjDataset or dataset::SuperpixelDataset
-=======
-## Issues
-1. multi GPU
-https://pytorch.org/tutorials/beginner/former_torchies/parallelism_tutorial.html#multi-gpu-examples
 
-2. SP_Net
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a

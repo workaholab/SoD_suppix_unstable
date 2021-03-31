@@ -354,14 +354,11 @@ if(TRAIN_ON):
           dep_path=data_record[5][0]          
           # visualization
           im_size=data_record[6] # image size
-<<<<<<< HEAD
+
           
           if(MODEL_SEL>2):
             sp_map=data_record[7]
           
-          
-=======
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
           '''
           print("img_data",img_data.shape) 
           print("depth_data",depth_data.shape)
@@ -369,11 +366,9 @@ if(TRAIN_ON):
           # zero the parameter gradients
           optimizer.zero_grad()
           
-<<<<<<< HEAD
+
           result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
-=======
-          result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
           '''  
           print("result",result.shape) 
           print("b1_result",b1_result.shape) 
@@ -515,16 +510,13 @@ if(TEST_ON):
         dep_path=data_record[5][0]          
         # visualization
         im_size=data_record[6] # image size
-<<<<<<< HEAD
+
         
         if(MODEL_SEL>2):
             sp_map=data_record[7]
             
         result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model_test(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
-=======
 
-        result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model_test(img_data, depth_data, state_train_test)
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
         # results=[result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result]   
         # output get sigmoid ########################
         sig_result=torch.sigmoid(result).to(device)

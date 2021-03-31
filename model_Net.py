@@ -222,11 +222,9 @@ class Net(nn.Module):
         # final fusion conv
         self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
  
-<<<<<<< HEAD
+
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####
-=======
-    def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path=""):  #### fcn_2d ####
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         # Max pooling over a (2, 2) window
         # activation function: Relu or Sigmoid (Later)        
         #sequential: https://www.itread01.com/content/1547079864.html
@@ -558,11 +556,8 @@ class Net2(nn.Module):
         
         self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
  
-<<<<<<< HEAD
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####
-=======
-    def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path=""):  #### fcn_2d ####
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         # Max pooling over a (2, 2) window
         # activation function: Relu or Sigmoid (Later)
         
@@ -783,10 +778,8 @@ class Net2(nn.Module):
         ########
         # SP pooling
         ########
-<<<<<<< HEAD
+
         '''
-=======
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
         # spx = np.zeros((batch_size, xSize, ySize))
         if(dataset_type): # rgbd
           #rgb_path_st=rgb_path.numpy()
@@ -796,21 +789,14 @@ class Net2(nn.Module):
           # print("rgb_path",rgb_path)
           # print("d_path",d_path)
           d_spx = RGBD_SLICProcessor(rgb_path,d_path)
-          
-        # 
-<<<<<<< HEAD
-        
+
         # d_spx=sp_map
         spx_trans_compose = transforms.Compose([
             transforms.ToTensor(),
         ])
         '''
         
-=======
-        spx_trans_compose = transforms.Compose([
-            transforms.ToTensor(),
-        ])
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         spx = spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
         # print(spx.shape)#[300, 400] 
         #[1, 1, 642, 642]
@@ -945,11 +931,8 @@ class Net3(nn.Module):
         #self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
         self.fusion_conv = nn.Conv1d(6, 1, 1, padding=1)
  
-<<<<<<< HEAD
+
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####
-=======
-    def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path=""):  #### fcn_2d ####
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
         # Max pooling over a (2, 2) window
         # activation function: Relu or Sigmoid (Later)
         
@@ -962,10 +945,8 @@ class Net3(nn.Module):
         ########
         # SP pooling prepare
         ########
-<<<<<<< HEAD
+
         '''
-=======
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
         # spx = np.zeros((batch_size, xSize, ySize))
         if(dataset_type): # rgbd
           #rgb_path_st=rgb_path.numpy()
@@ -980,10 +961,9 @@ class Net3(nn.Module):
         spx_trans_compose = transforms.Compose([
             transforms.ToTensor(),
         ])
-<<<<<<< HEAD
+
         '''
-=======
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         spx = spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
         
         
@@ -1339,11 +1319,8 @@ class Net_interpolation(nn.Module):
         
         self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
  
-<<<<<<< HEAD
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####
-=======
-    def forward(self, input_rgb, input_depth, state_trte):  #### fcn_2d ####
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         # Max pooling over a (2, 2) window
         # activation function: Relu or Sigmoid (Later)
         #sequential: https://www.itread01.com/content/1547079864.html
@@ -1680,11 +1657,8 @@ class SPNet(nn.Module):
         # self.fusion_conv_inf = nn.Conv1d(3, 1, 1)
         # self.out_sig=nn.Sigmoid()
 
-<<<<<<< HEAD
     def forward(self, input_rgb, input_depth,dataset_type, rgb_path="", d_path="", d_spx=[]): #### fcn_1d ####
-=======
-    def forward(self, input_rgb, input_depth,dataset_type): #### fcn_1d ####
->>>>>>> dd86c05b6b13e46c37a8b50f8b4b326dda88ba1a
+
         # Max pooling over a (2, 2) window
         # activation function: Relu or Sigmoid (Later)
         #sequential: https://www.itread01.com/content/1547079864.html
