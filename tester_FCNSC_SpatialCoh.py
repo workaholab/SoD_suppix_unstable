@@ -24,7 +24,7 @@ import torch.optim as optim
 
 # my modules
 import dataset_generate
-from dataset_generate import SalientObjDataset
+from dataset_generate import SalientObjDataset, SuperpixelDataset
 from model_Net import Net, Net2, Net3, Net_interpolation, SPNet, SPNet_interpolation #DSS_parallel
 from spatCoherence import Spco_Loss
 
@@ -39,9 +39,9 @@ from config import Config
 cfg=Config()
 #degub
 DEBUG=cfg.DEBUG
-MODEL_SEL=cfg.model_sel
 # share by Train and Test
-start_VerTrain=cfg.start_VerTrain #0: no specific version need to be replaced
+start_VerTrain=1 #0: no specific version need to be replaced
+MODEL_SEL=0
 #VERSION # updating
 if(start_VerTrain==0): 
   Ver_Train=1
@@ -55,8 +55,9 @@ else:
 TRAIN_ON=True
 start_EP=0
 # testing set (end of model training parameters to use)
-TEST_ON=True
-epochs=40
+TEST_ON=False
+epochs=118
+
 #log file output
 LogVER=1
 Log_update=True
@@ -272,22 +273,33 @@ if(TRAIN_ON):
         #print(model.state_dict()[param_tensor]) #init parameters
         print(model.state_dict()[param_tensor].size()) #weights size
   
-  ##pretraining data
-  dataset_type=0
-  rgb_pretrain_dataset=SalientObjDataset(state_train_test,dataset_type) #Training/RGB dataset
-  pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
   
-  ##training data
-  dataset_type=1
-  train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
-  train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
   
-  # Debug used #################################
+  if(MODEL_SEL>1):
+    ##pretraining data 
+    dataset_type=0
+    rgb_pretrain_dataset=SuperpixelDataset(state_train_test,dataset_type) #Training/RGB dataset
+    pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
+    ##training data 
+    dataset_type=1
+    train_dataset = SuperpixelDataset(state_train_test,dataset_type) #Training/RGBD dataset
+    train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)    
+  else:
+    ##pretraining data 
+    dataset_type=0
+    rgb_pretrain_dataset=SalientObjDataset(state_train_test,dataset_type) #Training/RGB dataset
+    pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
+    ##training data 
+    dataset_type=1
+    train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
+    train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
+  
+  '''
   # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
   
   dataset_type=1 #RGBD as testing set
   loader=DataLoaderX(SalientObjDataset(state_train_test,dataset_type,debug=DEBUG), batch_size=batch_size,shuffle=False)
-  # Debug used #################################
+  '''
   
   #loss function
   # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
@@ -323,12 +335,12 @@ if(TRAIN_ON):
         if(epoch%2==0): #RGB
           print("::::RGB dataset::::")
           f.write("::::RGB dataset::::\n")
-          dataset_type=0
+          # dataset_type=0
           loader=pretrain_loader       
         else: #RGBD
           print("::::RGBD dataset (Before e15)::::")
           f.write("::::RGBD dataset (Before e15)::::\n")
-          dataset_type=1
+          # dataset_type=1
           loader=train_loader        
       else:
         print("::::RGBD dataset (After e15)::::")
@@ -355,8 +367,7 @@ if(TRAIN_ON):
           # visualization
           im_size=data_record[6] # image size
 
-          
-          if(MODEL_SEL>2):
+          if(MODEL_SEL>1):
             sp_map=data_record[7]
           
           '''
@@ -366,8 +377,10 @@ if(TRAIN_ON):
           # zero the parameter gradients
           optimizer.zero_grad()
           
-
-          result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+          if(MODEL_SEL>1):
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+          else:
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
 
           '''  
           print("result",result.shape) 
@@ -512,10 +525,13 @@ if(TEST_ON):
         im_size=data_record[6] # image size
 
         
-        if(MODEL_SEL>2):
+        if(MODEL_SEL>1):
             sp_map=data_record[7]
             
-        result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model_test(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+        if(MODEL_SEL>1):
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+        else:
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
 
         # results=[result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result]   
         # output get sigmoid ########################

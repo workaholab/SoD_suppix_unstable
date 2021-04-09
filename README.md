@@ -16,6 +16,11 @@ Before use it, modify the config of data directory.
 ## 2021/3/30
 remove " with torch.no_grad():" in tester_FCNSC_SpatialCoh.py (around ln: 248)
 
+## 2021/4/09
+1. fixed the issues 
+   * dataset_generate.py: SalientObjDataset, SuperpixelDataset
+   * model_Net.py: a conv2d error (fusion layer)
+
 add Config: self.model_sel
 current mode setting are: 
 ```

@@ -20,7 +20,7 @@ import glob
 from skimage.segmentation import slic
 from skimage import io, color
 
-from slic import RGBD_SLICProcessor, SLICProcessor
+from slic import RGBD_SLICProcessor
 
 from config import Config
 cfg=Config()
@@ -197,21 +197,21 @@ class SalientObjDataset(data.Dataset):
           dep_img = PIL.Image.new('L',gt_img.size) #torch.zeros(gt_data.shape) #transforms.ToPILImage()( np.zeros((gt_img.size[1],gt_img.size[0]),dtype=np.float32) )
           
           # superpixel label map
-          superpixel_maps=slic(io.imread(rgb_path))
+          #superpixel_maps=slic(io.imread(rgb_path))
           
         else:
           dep_path = glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))[0]
           dep_img = PIL.Image.open(dep_path)
           
           # superpixel label map
-          superpixel_maps = RGBD_SLICProcessor(rgb_path,dep_path)
+          #superpixel_maps = RGBD_SLICProcessor(rgb_path,dep_path)
         
         depth_data = self.depth_trans_compose(dep_img)
-        sp_maps=self.gt_trans_compose(superpixel_maps) # superpixel label tensor
+        #sp_maps=self.gt_trans_compose(superpixel_maps) # superpixel label tensor
         img_size=img.size
 
         # tensor out
-        return  img_data, depth_data , gt_data, rgb_path, gt_path, dep_path, img_size, sp_maps
+        return  img_data, depth_data , gt_data, rgb_path, gt_path, dep_path, img_size #, sp_maps
 
         
         
@@ -229,7 +229,7 @@ class SalientObjDataset(data.Dataset):
 #================================================================================
 
 class SuperpixelDataset(data.Dataset):
-    def __init__(self, image, superpixels,augmentation=None,debug=False):
+    def __init__(self,STATE_TRTE,DATASET_TYPE,augmentation=None,debug=False):
         # --------------------------------------------
         # Initialize paths, transforms, and so on
         # --------------------------------------------
@@ -314,11 +314,35 @@ class SuperpixelDataset(data.Dataset):
               self.meanB=mean_PKU[2]
               self.meanD=mean_PKU[3]
               
+              
         if (debug):
           self.START_INDEX = 1
           self.END_INDEX = 10
               
         self.NUM_OF_IMAGES = self.END_INDEX-self.START_INDEX+1
+        
+        # augmentation setting
+        """
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        """
+        self.rgb_trans_compose = transforms.Compose([
+            transforms.Resize(cfg.input_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        self.depth_trans_compose = transforms.Compose([
+            transforms.Resize(cfg.input_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean = (self.meanD/255), std = (1/255))
+        ])
+        self.gt_trans_compose = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
         
     def __getitem__(self, index):
         # --------------------------------------------
@@ -335,36 +359,33 @@ class SuperpixelDataset(data.Dataset):
         
         rgb_path = glob.glob(os.path.join(self.rgb_Dirpath,rgb_filenm))[0]
         gt_path = glob.glob(os.path.join(self.gt_Dirpath,gt_filenm))[0]
+
+        img = PIL.Image.open(rgb_path).convert('RGB')
+        gt_img = PIL.Image.open(gt_path).convert('L')        
+        img_data = self.rgb_trans_compose(img) 
+        gt_data = self.gt_trans_compose(gt_img)
+        
         # depth data
-        # RGBD_SLICProcessor, SLICProcessor
         if not len(glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))): # is empty
-          #superpixel_maps=SLICProcessor(rgb_path)
+          dep_path = 0
+          dep_img = PIL.Image.new('L',gt_img.size) #torch.zeros(gt_data.shape) #transforms.ToPILImage()( np.zeros((gt_img.size[1],gt_img.size[0]),dtype=np.float32) )
+          
+          # superpixel label map
           superpixel_maps=slic(io.imread(rgb_path))
+          
         else:
           dep_path = glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))[0]
+          dep_img = PIL.Image.open(dep_path)
+          
+          # superpixel label map
           superpixel_maps = RGBD_SLICProcessor(rgb_path,dep_path)
         
-        #superpixel map => features
-        '''
-        for cluster in superpixel_maps:
-          # image_arr[cluster.h][cluster.w][0] = 0
-          # image_arr[cluster.h][cluster.w][1] = 0
-          # image_arr[cluster.h][cluster.w][2] = 0
-          
-          image_Low_feat=[]
-          
-          # low-levels (l,a,b,d)
-          com_l= cluster.l
-          com_a= cluster.a
-          com_b= cluster.b
-        if len(glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))): # is empty
-          com_d= cluster.d
-        
-          
-          # advanced
-        '''
-        
-        return  superpixel_maps
+        depth_data = self.depth_trans_compose(dep_img)
+        sp_maps=self.gt_trans_compose(superpixel_maps) # superpixel label tensor
+        img_size=img.size
+
+        # tensor out
+        return  img_data, depth_data , gt_data, rgb_path, gt_path, dep_path, img_size, sp_maps
         
         
     def __len__(self):

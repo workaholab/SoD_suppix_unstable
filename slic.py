@@ -193,15 +193,18 @@ class RGBD_SLICProcessor(object):
             image_arr[cluster.h][cluster.w][2] = 0
         self.save_lab_image(name, image_arr)
 
+    
     def iterate_10times(self):
         self.init_clusters()
         self.move_clusters()
+        
         for i in trange(10):
             self.assignment()
             self.update_cluster()
+            '''
             name = 'outRGBD_M{m}_K{k}_loop{loop}.png'.format(loop=i, m=self.M, k=self.K)
             self.save_current_image(name)
-
+            '''
 #  ===============================================================
 class Cluster(object):
     cluster_index = 1
