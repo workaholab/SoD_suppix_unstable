@@ -928,8 +928,8 @@ class Net3(nn.Module):
         self.b2_sc=nn.Conv2d(5, 1, 3, padding=1)
         self.b1_sc=nn.Conv2d(5, 1, 3, padding=1)
         
-        #self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
-        self.fusion_conv = nn.Conv1d(6, 1, 1, padding=1)
+        self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
+        #self.fusion_conv = nn.Conv1d(6, 1, 1, padding=1)
  
 
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####

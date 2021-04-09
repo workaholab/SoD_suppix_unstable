@@ -1,5 +1,8 @@
 # SoD_suppix_unstable
 SoD_suppix_unstable
+Author: workaholab 
+
+
 
 ## 2021/3/25
 This is the unstable verion of Salient object detection with srchitecture "Deeply Supervised Salient Object Detection with Short Connection"
