@@ -40,8 +40,8 @@ cfg=Config()
 #degub
 DEBUG=cfg.DEBUG
 # share by Train and Test
-start_VerTrain=1 #0: no specific version need to be replaced
-MODEL_SEL=0
+start_VerTrain=3 #0: no specific version need to be replaced
+MODEL_SEL=3
 #VERSION # updating
 if(start_VerTrain==0): 
   Ver_Train=1
@@ -52,11 +52,13 @@ else:
 
 
 # training set (define the starting point)
-TRAIN_ON=True
+TRAIN_ON=False
 start_EP=39
+epochs=118 ### ending training epoch
 # testing set (end of model training parameters to use)
-TEST_ON=False
-epochs=40
+TEST_ON=True
+t_epoch=40 ########################################################## testing epochs 
+
 
 #log file output
 LogVER=1
@@ -78,7 +80,7 @@ def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, 
     if (train_mode):
       PATH_dir="VisualResults_T%d/Train/Epoch_%d/results_%s/"%(Ver_Train,epochs,number_base)
     else:
-      PATH_dir="VisualResults_T%d/Test/results_%s/"%(Ver_Train,number_base)
+      PATH_dir="VisualResults_T%d/Test/Epoch_%d/results_%s/"%(Ver_Train,epochs,number_base)
       
     if not os.path.exists(PATH_dir):
        os.makedirs(PATH_dir)  #create PATH_dir
@@ -237,7 +239,7 @@ if(TRAIN_ON):
     print("Starting training epochs: %d"%(start_EP))
  
   if(Log_update):
-    while os.path.exists("training_T%d_V%d.log"%(start_VerTrain,LogVER)):
+    while os.path.exists("training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER)):
       LogVER+=1 #don't cover the previous log  
     
   train_log_output="training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER, state_train_test)
@@ -442,11 +444,13 @@ if(TRAIN_ON):
           # visualization In the begining and last 
           if(epoch>epochs*0.8 or epoch==40):
             visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
-       
+            
+            
+          '''  
           # delete unnessery model !!
           if(epoch>start_EP+2 and epoch < epochs-3):
             delModelParam(Ver_Train, epoch)
-       
+          '''
       #Save model parameters
       # https://pytorch.org/tutorials/beginner/saving_loading_models.html#save
       saveModelParam(Ver_Train, epoch_n, model, optimizer, loss)
@@ -471,7 +475,7 @@ if(TEST_ON):
   print("#::::::::::::::::::::")
   # TODO: testing
   # loading parameters
-  t_epoch=118 ########################################################## testing epochs 
+  
   PATH_dir="modelParam_T%d/"%(Ver_Train)
   PATH_file="param_e%02d.pth"%(t_epoch)
   PATH=PATH_dir+PATH_file
@@ -510,10 +514,10 @@ if(TEST_ON):
   '''
   state_train_test=0
   if(Log_update):
-    while os.path.exists("testing_T%d_V%d.log"%(start_VerTrain,LogVER)):
+    while os.path.exists("testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,state_train_test)):
       LogVER+=1 #don't cover the previous log  
     
-  test_log_output="testing_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER, state_train_test)
+  test_log_output="testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,state_train_test)
   f = open(test_log_output, "w")
   
   for dataset_type in range(1,4): #dataset_type=1 #SET: 1~3
