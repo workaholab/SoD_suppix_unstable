@@ -18,12 +18,6 @@ Before use it, modify the config of data directory.
 
 ## 2021/3/30
 remove " with torch.no_grad():" in tester_FCNSC_SpatialCoh.py (around ln: 248)
-
-## 2021/4/09
-1. fixed the issues 
-   * dataset_generate.py: SalientObjDataset, SuperpixelDataset
-   * model_Net.py: a conv2d error (fusion layer)
-
 add Config: self.model_sel
 current mode setting are: 
 ```
@@ -37,11 +31,23 @@ current mode setting are:
     model = Net3(device,start_EP)
 ```
 
-## 2021/3/30
+## 2021/4/07*
 model_Net:: Net2, Net3 <==> dataset::SalientObjDataset 
   1. add superpixel segmentation labels tensor
   2. forward() pass the superpixel label tensor (for superpixel poiling usage)
 
+## 2021/4/09
+fixed the issues 
+   * dataset_generate.py: SalientObjDataset, SuperpixelDataset
+   * model_Net.py: a conv2d error (fusion layer)
+   
+## 2021/4/12
+fixed the issues 
+   * dataset_generate.py: SuperpixelDataset, skimage slic output to tensor [1,1,w,h]
+   * model_Net.py: Net2, Net3, superpixel information for superpixel pooling fixing
+   * tester*.py: train, test avaliable
+   
+   
 
 ## Issues
 ### multi GPU

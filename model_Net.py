@@ -791,31 +791,32 @@ class Net2(nn.Module):
           d_spx = RGBD_SLICProcessor(rgb_path,d_path)
 
         # d_spx=sp_map
+        
+        
         spx_trans_compose = transforms.Compose([
             transforms.ToTensor(),
         ])
         '''
         
-
-        spx = spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
+        # superpixel pooling:: get superpixel label maps
+        spx = d_spx.to(device) #spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
+        
         # print(spx.shape)#[300, 400] 
         #[1, 1, 642, 642]
         # print()
         # spx = F.interpolate(spx, [fusion_result.shape[3],fusion_result.shape[2]]).to(device)
-        pooling_in=F.interpolate(fusion_result, [spx.shape[1],spx.shape[2]]).to(device)
+        pooling_in=F.interpolate(fusion_result, [spx.shape[2],spx.shape[3]]).to(device)
         # print ("INPUT ARRAY  ----------------- \n", X) 
         pld = pool(pooling_in, spx)
         # print ("::pld::",pld.shape)
         # print ("POOLED ARRAY ----------------- \n", pld)
         # print ("Shape of pooled array: ", pld.size())
         
+        # superpixel unpooling
         unpld = unpool(pld, spx)
         fusion_result = unpld
         
         return fusion_result, b1_conv3, b2_conv3, b3_conv3, b4_conv3, b5_conv3, b6_conv3
-        
-        
-
         
         
 # pixel net===============================================================================
@@ -928,8 +929,8 @@ class Net3(nn.Module):
         self.b2_sc=nn.Conv2d(5, 1, 3, padding=1)
         self.b1_sc=nn.Conv2d(5, 1, 3, padding=1)
         
-        self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
-        #self.fusion_conv = nn.Conv1d(6, 1, 1, padding=1)
+        # self.fusion_conv = nn.Conv2d(6, 1, 1, padding=1)
+        self.fusion_conv = nn.Conv1d(6, 1, 1, padding=1)
  
 
     def forward(self, input_rgb, input_depth, state_trte, rgb_path="", d_path="", d_spx=[]):  #### fcn_2d ####
@@ -963,9 +964,9 @@ class Net3(nn.Module):
         ])
 
         '''
-
-        spx = spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
-        
+        # superpixel pooling:: get superpixel label maps
+        spx = d_spx.to(device) #spx_trans_compose(d_spx).to(device) #torch.from_numpy(spx) 
+        # spx=torch.squeeze(spx,dim=0) 
         
         ### RGB ##########################################
         rgb_conv1_1 = F.relu(self.rgb_conv1_1(input_rgb), inplace=True).to(device)
@@ -1159,12 +1160,12 @@ class Net3(nn.Module):
         # spx = F.interpolate(spx, [fusion_result.shape[3],fusion_result.shape[2]]).to(device)
         # pooling_in=F.interpolate(fusion_result, [spx.shape[1],spx.shape[2]]).to(device)
         # print ("INPUT ARRAY  ----------------- \n", X) 
-        r1_conv1_resize_pldIn=F.interpolate(r1_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
-        r2_conv1_resize_pldIn=F.interpolate(r2_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
-        r3_conv1_resize_pldIn=F.interpolate(r3_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
-        r4_conv1_resize_pldIn=F.interpolate(r4_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
-        r5_conv1_resize_pldIn=F.interpolate(r5_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
-        r6_conv1_resize_pldIn=F.interpolate(r6_conv1_resize, [spx.shape[1],spx.shape[2]]).to(device)
+        r1_conv1_resize_pldIn=F.interpolate(r1_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
+        r2_conv1_resize_pldIn=F.interpolate(r2_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
+        r3_conv1_resize_pldIn=F.interpolate(r3_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
+        r4_conv1_resize_pldIn=F.interpolate(r4_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
+        r5_conv1_resize_pldIn=F.interpolate(r5_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
+        r6_conv1_resize_pldIn=F.interpolate(r6_conv1_resize, [spx.shape[2],spx.shape[3]]).to(device)
 
         r1_conv1_resize_pld = pool(r1_conv1_resize_pldIn, spx)
         r2_conv1_resize_pld = pool(r2_conv1_resize_pldIn, spx)
@@ -1205,11 +1206,10 @@ class Net3(nn.Module):
             ## print(temp_weight.shape)
             temp_bias = self.state_dict()['fusion_conv.bias'] #[:,:,:] #dim =[1,1,1]
             c=F.conv2d(fusion_concat, weight=temp_weight , bias= temp_bias, padding=1)#self.fusion_conv_inf(fusion_concat).to(device)    
-            
-            
-        
 
-        
+
+        # superpixel unpooling
+        #spx=torch.squeeze(spx)
         unpld = unpool(fusion_result, spx)
         fusion_result = unpld
         

@@ -53,10 +53,10 @@ else:
 
 # training set (define the starting point)
 TRAIN_ON=True
-start_EP=0
+start_EP=39
 # testing set (end of model training parameters to use)
 TEST_ON=False
-epochs=118
+epochs=40
 
 #log file output
 LogVER=1
@@ -152,11 +152,17 @@ def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, 
         writer.writerow([rgb_path, dep_path, gt_path])
        
 ###############################################################################
-# Load / Save model parameters
+# Load parameters (must existed) 
 def loadModelParam(model,PATH):
   print("==Load model parameters==")
-  model.load_state_dict(torch.load(PATH)['model_state_dict'])
-
+  
+  if os.path.exists(PATH):
+    model.load_state_dict(torch.load(PATH)['model_state_dict'])
+  else:
+    print("the model parameter [%s] not exist."%(PATH))
+    
+    
+# Save model parameters
 def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
     print("==Saving model parameters==")
     #Save model parameters
@@ -175,6 +181,20 @@ def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
           'optimizer_state_dict': optimizer.state_dict(),
           'loss': loss,
           }, PATH)
+          
+# delete preivous model parameters (must existed)          
+def delModelParam(Ver_Train, epoch):
+    print("==Deletet previous model parameters==")
+    #Save model parameters
+    # https://pytorch.org/tutorials/beginner/saving_loading_models.html#save
+    PATH_dir="modelParam_T%d/"%(Ver_Train)
+    
+    # delete previous epoch
+    PATH_file="param_e%02d.pth"%(epoch-1)  
+    PATH=PATH_dir+PATH_file
+    if os.path.exists(PATH):
+      os.remove(PATH)
+    
 
 # ##################
 #GPU device
@@ -273,7 +293,10 @@ if(TRAIN_ON):
         #print(model.state_dict()[param_tensor]) #init parameters
         print(model.state_dict()[param_tensor].size()) #weights size
   
-  
+  '''
+  # dataset objects initialization
+  # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
+  '''  
   
   if(MODEL_SEL>1):
     ##pretraining data 
@@ -293,13 +316,6 @@ if(TRAIN_ON):
     dataset_type=1
     train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
     train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
-  
-  '''
-  # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
-  
-  dataset_type=1 #RGBD as testing set
-  loader=DataLoaderX(SalientObjDataset(state_train_test,dataset_type,debug=DEBUG), batch_size=batch_size,shuffle=False)
-  '''
   
   #loss function
   # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
@@ -424,8 +440,12 @@ if(TRAIN_ON):
           sig_b6_result=torch.sigmoid(b6_result).to(device)
           sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
           # visualization In the begining and last 
-          if(epoch>epochs*0.8):
+          if(epoch>epochs*0.8 or epoch==40):
             visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
+       
+          # delete unnessery model !!
+          if(epoch>start_EP+2 and epoch < epochs-3):
+            delModelParam(Ver_Train, epoch)
        
       #Save model parameters
       # https://pytorch.org/tutorials/beginner/saving_loading_models.html#save
@@ -451,22 +471,23 @@ if(TEST_ON):
   print("#::::::::::::::::::::")
   # TODO: testing
   # loading parameters
-  epoch=40
+  t_epoch=118 ########################################################## testing epochs 
   PATH_dir="modelParam_T%d/"%(Ver_Train)
-  PATH_file="param_e%02d.pth"%(epoch)
+  PATH_file="param_e%02d.pth"%(t_epoch)
   PATH=PATH_dir+PATH_file
    
   ##model initialization
   #model_test = Net(device,epoch) 
   # decide model mode equal (the trained model)
   if(MODEL_SEL==0):
-    model_test =  Net(device,start_EP)
+    model_test =  Net(device,t_epoch)
   elif(MODEL_SEL==1):
-    model_test =  Net_interpolation(device,start_EP)
+    model_test =  Net_interpolation(device,t_epoch)
   elif(MODEL_SEL==2):
-    model_test = Net2(device,start_EP)
+    model_test = Net2(device,t_epoch)
   elif(MODEL_SEL==3):
-    model_test = Net3(device,start_EP)
+    model_test = Net3(device,t_epoch)
+  
   model_test.to(device)
   print("Load model parameters, param file: %s"%(PATH))
   model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
@@ -496,9 +517,16 @@ if(TEST_ON):
   f = open(test_log_output, "w")
   
   for dataset_type in range(1,4): #dataset_type=1 #SET: 1~3
-  
+    '''
     test_dataset = SalientObjDataset(state_train_test,dataset_type,debug=DEBUG) 
     test_loader = DataLoaderX(test_dataset, batch_size=batch_size)
+    '''
+    if(MODEL_SEL>1):
+      test_dataset = SuperpixelDataset(state_train_test,dataset_type) #Training/RGBD dataset
+      test_loader = DataLoaderX(test_dataset, batch_size=batch_size,shuffle=True)    
+    else:
+      test_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
+      test_loader = DataLoaderX(test_dataset, batch_size=batch_size,shuffle=True)
     
     #init params of f-measure
     NUM_OF_IMAGES=0
@@ -527,11 +555,13 @@ if(TEST_ON):
         
         if(MODEL_SEL>1):
             sp_map=data_record[7]
+            #print("sp_map")
+            #print(sp_map.shape)
             
         if(MODEL_SEL>1):
-            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model_test(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
         else:
-            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
+            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model_test(img_data, depth_data, state_train_test, img_name, dep_path)
 
         # results=[result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result]   
         # output get sigmoid ########################
@@ -546,7 +576,7 @@ if(TEST_ON):
         sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
         
         # visualization
-        visualize_results(state_train_test, Ver_Train, epoch, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
+        visualize_results(state_train_test, Ver_Train, t_epoch, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)   
         
         NUM_OF_IMAGES+=1
         #data to numpy
@@ -672,7 +702,7 @@ if(TEST_ON):
           r_f_measure[j] = 1.3*r_precision[j]*r_recall[j] /(0.3*r_precision[j]+r_recall[j])
                   
     max_f_measure = np.amax(r_f_measure)
-    step=epoch
+    step=t_epoch
     dataset_name=['NLPR','NJUDS','LFSD','RGBD','PKU']
     # monitor
     print("### dataset name: %s ###"%(dataset_name[dataset_type-1]))

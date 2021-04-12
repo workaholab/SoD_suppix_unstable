@@ -365,20 +365,22 @@ class SuperpixelDataset(data.Dataset):
         img_data = self.rgb_trans_compose(img) 
         gt_data = self.gt_trans_compose(gt_img)
         
+        superpixel_maps=slic(io.imread(rgb_path))
+        
         # depth data
         if not len(glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))): # is empty
           dep_path = 0
           dep_img = PIL.Image.new('L',gt_img.size) #torch.zeros(gt_data.shape) #transforms.ToPILImage()( np.zeros((gt_img.size[1],gt_img.size[0]),dtype=np.float32) )
           
           # superpixel label map
-          superpixel_maps=slic(io.imread(rgb_path))
+          # superpixel_maps=slic(io.imread(rgb_path))
           
         else:
           dep_path = glob.glob(os.path.join(self.dep_Dirpath,dep_filenm))[0]
           dep_img = PIL.Image.open(dep_path)
           
           # superpixel label map
-          superpixel_maps = RGBD_SLICProcessor(rgb_path,dep_path)
+          # superpixel_maps = RGBD_SLICProcessor(rgb_path,dep_path)
         
         depth_data = self.depth_trans_compose(dep_img)
         sp_maps=self.gt_trans_compose(superpixel_maps) # superpixel label tensor
