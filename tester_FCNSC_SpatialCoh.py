@@ -54,11 +54,10 @@ else:
 # training set (define the starting point)
 TRAIN_ON=True
 start_EP=0
-epochs=1 ### ending training epoch
+epochs=120 ### ending training epoch
 # testing set (end of model training parameters to use)
 TEST_ON=True
 t_epoch=40 ########################################################## testing epochs 
-
 
 #log file output
 LogVER=1
@@ -68,7 +67,6 @@ Log_update=True
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())
-###############
 
 # utilities ###############
 def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, rgb_path, gt_path, dep_path, SAVE_REF=True):
@@ -158,7 +156,20 @@ def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, 
 def loadModelParam(model,PATH):
   print("==Load model parameters==")
   if os.path.exists(PATH):
-    model.load_state_dict(torch.load(PATH)['model_state_dict'])
+    checkpoint = torch.load(PATH)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    load_epoch = checkpoint['epoch']
+    print("load training epoch: %d"%(load_epoch))
+    return model
+  else:
+    print("the model parameter [%s] not exist."%(PATH))
+    
+# Load optimizer (must existed) 
+def loadOPTParam(optimizer,PATH):
+  print("==Load optimizer parameters==")
+  if os.path.exists(PATH):
+    optimizer.load_state_dict(torch.load(PATH)['optimizer_state_dict'])
+    return optimizer
   else:
     print("the model parameter [%s] not exist."%(PATH))
     
@@ -200,6 +211,8 @@ def delModelParam(Ver_Train):
         if os.path.exists(PATH):
           os.remove(PATH)
 
+
+
 # ##################
 #GPU device
 # ##################
@@ -218,7 +231,6 @@ print("(tester) Device info: torch.{}.is_available()".format(device))
 # ##################
 batch_size=1
 if(TRAIN_ON):
-
   #::::::::::::::::::::
   # TRAINING
   #::::::::::::::::::::
@@ -247,9 +259,10 @@ if(TRAIN_ON):
   train_log_output="training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,state_train_test)
   f = open(train_log_output, "w")
   
-  ##parameters init states## =====================================================================================
+  ##parameters init states## ==============
   init_learning_rate=1e-4
   init_weight_decay=0
+
   
   ##model initialization
   # old used model
@@ -275,21 +288,28 @@ if(TRAIN_ON):
     model = Net3(device,start_EP)
     print("model class name: Net3.")
     f.write("model class name: Net3. \n")
-    
-  # model=torch.nn.DataParallel(model)  ## Multi GPU
-  model.to(device)  
   
+  # use previous parameters to train
   if(start_VerTrain!=0 and start_EP!=0):
       if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
-        loadModelParam(model,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
-  
+        model=loadModelParam(model,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
+  '''      
+  if torch.cuda.device_count() > 1:
+    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+    model = nn.DataParallel(model)  
+    # model=torch.nn.DataParallel(model)  ## Multi GPU
+  '''
+  model.to(device)  
+  model.train()
+     
   # model structure # debug
   struc_chk=DEBUG
   if struc_chk:
     print("warning: |||Model graph|||")
     model_seq=torch.nn.Sequential(*list(model.children())[:])
     print(model_seq)
-  
+
   
   if DEBUG:
     print("warning: Model's state_dict:")
@@ -297,7 +317,23 @@ if(TRAIN_ON):
         print(param_tensor)
         #print(model.state_dict()[param_tensor]) #init parameters
         print(model.state_dict()[param_tensor].size()) #weights size
-  
+
+  '''
+  #loss function
+  # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
+  #==> https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html#torch.nn.BCEWithLogitsLoss
+  '''
+  # criterion = nn.BCEWithLogitsLoss() # change criterion
+  criterion = Spco_Loss(device)
+  optimizer = optim.Adam(model.parameters(), init_learning_rate)
+  #optim.Adam(model.parameters(), lr=init_learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=init_weight_decay, amsgrad=False) # optim.SGD(model.parameters(), lr=init_learning_rate, momentum=0.9)
+  lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=3,gamma=0.1)
+
+  # use previous optimizer parameters to train
+  if(start_VerTrain!=0 and start_EP!=0):
+      if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
+        optimizer=loadOPTParam(optimizer,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
+
   '''
   # dataset objects initialization
   # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
@@ -321,17 +357,7 @@ if(TRAIN_ON):
     dataset_type=1
     train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
     train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
-  
-  #loss function
-  # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
-  #==> https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html#torch.nn.BCEWithLogitsLoss
-  
-  # criterion = nn.BCEWithLogitsLoss() # change criterion
-  criterion = Spco_Loss(device)
-  optimizer = optim.Adam(model.parameters(), init_learning_rate)
-  #optim.Adam(model.parameters(), lr=init_learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=init_weight_decay, amsgrad=False) # optim.SGD(model.parameters(), lr=init_learning_rate, momentum=0.9)
-  lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=3,gamma=0.1)
-  
+
   #saved init parameters
   if(start_EP==0):
       PATH_dir="modelParam_T%d/"%(Ver_Train)
@@ -351,6 +377,7 @@ if(TRAIN_ON):
   # https://discuss.pytorch.org/t/how-to-prefetch-data-when-processing-with-gpu/548/17
   # ##################
   for epoch in range(start_EP, epochs):  # loop over the dataset multiple times
+  
       # Debug used #################################
       if(epoch<16):
         if(epoch%2==0): #RGB
@@ -445,7 +472,7 @@ if(TRAIN_ON):
           sig_b6_result=torch.sigmoid(b6_result).to(device)
           sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
           # visualization In the begining and last 
-          if(epoch>epochs*0.8 or epoch==40):
+          if(epoch < 2 or epoch>epochs*0.8 or epoch==40):
             visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
 
 
@@ -458,16 +485,13 @@ if(TRAIN_ON):
   f.write('Training Execution time: %f secs\n'%(train_end-train_start))
   f.close()
   
-  '''  
-  # delete unnessery model !!
-  delModelParam(Ver_Train)
-  '''  
-  
+    
+# delete unnessery model !!
+delModelParam(Ver_Train)
 ################################################################################################
 ################################################################################################
 ################################################################################################
 ################################################################################################
-
 if(TEST_ON):
   #::::::::::::::::::::
   # TESTING
@@ -486,6 +510,9 @@ if(TEST_ON):
   f = open(test_log_output, "w")
    
   ##model initialization
+  PATH_dir="modelParam_T%d/"%(Ver_Train)
+  PATH_file="param_e%02d.pth"%(t_epoch)
+  PATH=PATH_dir+PATH_file
   #model_test = Net(device,epoch) 
   # decide model mode equal (the trained model)
   if(MODEL_SEL==0):
@@ -500,20 +527,25 @@ if(TEST_ON):
   elif(MODEL_SEL==3):
     model_test = Net3(device,t_epoch)
     print("Test model class name: Net3.")
-  
-  # model_test=torch.nn.DataParallel(model_test) ## Multi GPU
-  model_test.to(device)
-  
-  PATH_dir="modelParam_T%d/"%(Ver_Train)
-  PATH_file="param_e%02d.pth"%(t_epoch)
-  PATH=PATH_dir+PATH_file
-  
+
   print("Load testing model parameters, param file: %s"%(PATH))
   # model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
   if os.path.exists(PATH):
-    model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
+    # model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
+    checkpoint = torch.load(PATH)
+    model_test.load_state_dict(checkpoint['model_state_dict'])
+    c_epoch = checkpoint['epoch']
+    print("checkpoint epoch: %d"%(c_epoch))
   else:
     print("the model parameter [%s] not exist."%(PATH))
+    
+  '''  
+  if torch.cuda.device_count() > 1:
+    model_test = nn.DataParallel(model_test)  
+    # model_test=torch.nn.DataParallel(model_test) ## Multi GPU
+  '''
+  model_test.to(device)    
+  model_test.eval()
 
   if DEBUG:
     print("warning: |||Model (test) graph|||")
@@ -539,9 +571,7 @@ if(TEST_ON):
     else:
       debug_dataset = SalientObjDataset(1,1,debug=True) #test / SalientObjDataset (pixel)
       debug_loader = DataLoaderX(debug_dataset, batch_size=batch_size,shuffle=True)
-    
-    
-    
+
   for dataset_type in range(1,4): #dataset_type=1 #SET: 1~3
     '''
     test_dataset = SalientObjDataset(state_train_test,dataset_type,debug=DEBUG) 
