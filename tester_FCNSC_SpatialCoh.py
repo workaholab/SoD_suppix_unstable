@@ -141,9 +141,10 @@ def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, 
         writer = csv.writer(csvfile)
         writer.writerow(['RGB', 'DEPTH', 'GT'])
         writer.writerow([rgb_path, dep_path, gt_path])
-       
-###############################################################################
-# Load parameters (must existed) 
+
+"""
+Load parameters (must existed) 
+"""
 def loadModelParam(model,PATH):
   print("==Load model parameters==")
   if os.path.exists(PATH):
@@ -163,7 +164,7 @@ def loadOPTParam(optimizer,PATH):
     return optimizer
   else:
     print("the model parameter [%s] not exist."%(PATH))
-    
+
 ###############################################################################    
 # Save model parameters
 def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
@@ -188,7 +189,7 @@ def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
           
     torch.save(model, PATH2)
           
-          
+
 ###############################################################################          
 # delete preivous model parameters (must existed)          
 def delModelParam(Ver_Train):
@@ -219,9 +220,9 @@ else:
 print("(tester) Device info: torch.{}.is_available()".format(device))
 
 ################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################ 
+# ###############################################################################################
+# ###############################################################################################
+# ############################################################################################### 
 
 # ##################
 # main
@@ -232,7 +233,7 @@ batch_size=1
 start_VerTrain=2 #0: no specific version need to be replaced
 MODEL_SEL=2
 
-for start_VerTrain in [1,2,3,4]:
+for start_VerTrain in [1,3]:#1,2,3,4
     #VERSION # updating
     if(start_VerTrain==0): 
       Ver_Train=1
@@ -245,22 +246,22 @@ for start_VerTrain in [1,2,3,4]:
     
     # model (exitsed)
     if (Ver_Train==1):
-      MODEL_SEL==0
+      MODEL_SEL=0
     elif (Ver_Train==2):
-      MODEL_SEL==2
+      MODEL_SEL=2
     elif (Ver_Train==3):
-      MODEL_SEL==3
+      MODEL_SEL=3
     elif (Ver_Train==4):
-      MODEL_SEL==1
+      MODEL_SEL=1
     
     if(start_EP!=0):
         print("Starting training epochs: %d"%(start_EP))
     
     if(Log_update):
-        while os.path.exists("training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,1)):
+        while os.path.exists("training_T%d_V%d_STATE%d.log"%(Ver_Train,LogVER,1)):
             LogVER+=1 #don't cover the previous log  
             
-    train_log_output="training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,1)        
+    train_log_output="training_T%d_V%d_STATE%d.log"%(Ver_Train,LogVER,1)        
     f = open(train_log_output, "w")
     
     train_start=time.time()
@@ -490,7 +491,7 @@ for start_VerTrain in [1,2,3,4]:
                   sig_b6_result=torch.sigmoid(b6_result).to(device)
                   sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
                   # visualization In the begining and last 
-                  if(epoch < 2 or epoch>epochs*0.8 or epoch==40):
+                  if(epoch < 2 or epoch%20==0 or epoch==t_epoch):
                     visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
               #--------------------------------------------------------------------------------------------------------------------------------------------
               for dataset_type in range(1,4): #dataset_type=1 #SET: 1~3
@@ -563,9 +564,9 @@ for start_VerTrain in [1,2,3,4]:
 # delModelParam(Ver_Train)
 
 ################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
+# ###############################################################################################
+# ###############################################################################################
+# ###############################################################################################
 if(TEST_ON):
   #::::::::::::::::::::
   # TESTING
