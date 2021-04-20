@@ -39,25 +39,14 @@ from config import Config
 cfg=Config()
 #degub
 DEBUG=cfg.DEBUG
-# share by Train and Test
-start_VerTrain=1 #0: no specific version need to be replaced
-MODEL_SEL=0
-#VERSION # updating
-if(start_VerTrain==0): 
-  Ver_Train=1
-  while os.path.exists("modelParam_T%d/"%(Ver_Train)) or os.path.exists("VisualResults_T%d/"%(Ver_Train)):
-        Ver_Train+=1 #don't cover the previous log
-else:
-  Ver_Train=start_VerTrain
-
 
 # training set (define the starting point)
 TRAIN_ON=True
-start_EP=0
-epochs=120 ### ending training epoch
+start_EP=80
+epochs=90 ### ending training epoch
 # testing set (end of model training parameters to use)
 TEST_ON=True
-t_epoch=40 ########################################################## testing epochs 
+t_epoch=85 ########################################################## testing epochs 
 
 #log file output
 LogVER=1
@@ -77,8 +66,10 @@ def visualize_results(train_mode, Ver_Train, epochs, img_size, predict_results, 
     #result saving
     if (train_mode):
       PATH_dir="VisualResults_T%d/Train/Epoch_%d/results_%s/"%(Ver_Train,epochs,number_base)
-    else:
+    elif(train_mode==0):
       PATH_dir="VisualResults_T%d/Test/Epoch_%d/results_%s/"%(Ver_Train,epochs,number_base)
+    elif(train_mode==2):
+      PATH_dir="VisualResults_T%d/Test_IN_Train/Epoch_%d/results_%s/"%(Ver_Train,epochs,number_base)
       
     if not os.path.exists(PATH_dir):
        os.makedirs(PATH_dir)  #create PATH_dir
@@ -173,7 +164,7 @@ def loadOPTParam(optimizer,PATH):
   else:
     print("the model parameter [%s] not exist."%(PATH))
     
-    
+###############################################################################    
 # Save model parameters
 def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
     print("==Saving model parameters==")
@@ -186,6 +177,7 @@ def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
     PATH_file="param_e%02d.pth"%(epoch)
       
     PATH=PATH_dir+PATH_file
+    PATH2=PATH_dir+"model_e%02d.pth"%(epoch)
       
     torch.save({
           'epoch': epoch,
@@ -194,6 +186,10 @@ def saveModelParam(Ver_Train, epoch, model, optimizer, loss):
           'loss': loss,
           }, PATH)
           
+    torch.save(model, PATH2)
+          
+          
+###############################################################################          
 # delete preivous model parameters (must existed)          
 def delModelParam(Ver_Train):
     print("==Deletet previous model parameters==")
@@ -226,268 +222,346 @@ print("(tester) Device info: torch.{}.is_available()".format(device))
 ################################################################################################
 ################################################################################################
 ################################################################################################ 
+
 # ##################
 # main
 # ##################
 batch_size=1
-if(TRAIN_ON):
-  #::::::::::::::::::::
-  # TRAINING
-  #::::::::::::::::::::
-  train_start=time.time()
-  print("#::::::::::::::::::::")
-  print("# TRAINING")
-  print("#::::::::::::::::::::")
-  #INPUT_TYPE=1 (pixel)
-  input_mode=0
-  state_train_test=1
-  #datasets RGB pretrain / RGBD training
-  '''
-  INPUT_TYPE=0 #1=pixel, 0=superpixel
-  DATASET_TYPE=1 #1=RGBD, 0=RGB
-  state_train_test=1 #1=Train, 0=Test
-  ''' 
-  
-  print("Train Version: %d"%(Ver_Train))
-  if(start_EP!=0):
-    print("Starting training epochs: %d"%(start_EP))
- 
-  if(Log_update):
-    while os.path.exists("training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,state_train_test)):
-      LogVER+=1 #don't cover the previous log  
+
+# share by Train and Test
+start_VerTrain=2 #0: no specific version need to be replaced
+MODEL_SEL=2
+
+for start_VerTrain in [1,2,3,4]:
+    #VERSION # updating
+    if(start_VerTrain==0): 
+      Ver_Train=1
+      while os.path.exists("modelParam_T%d/"%(Ver_Train)) or os.path.exists("VisualResults_T%d/"%(Ver_Train)):
+            Ver_Train+=1 #don't cover the previous log
+    else:
+      Ver_Train=start_VerTrain   
+       
+    print("Train Version: %d"%(Ver_Train))
     
-  train_log_output="training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,state_train_test)
-  f = open(train_log_output, "w")
-  
-  ##parameters init states## ==============
-  init_learning_rate=1e-4
-  init_weight_decay=0
-
-  
-  ##model initialization
-  # old used model
-    # DSS_parallel(device) #(delete)
-    # Net(device,start_EP)
-    # Net_interpolation(device,start_EP) #upsample is interpolation
-  # decide model mode
-  print("Select the model mode: %d"%(MODEL_SEL))
-  f.write("Select the model mode: %d \n"%(MODEL_SEL))
-  if(MODEL_SEL==0):
-    model =  Net(device,start_EP)
-    print("model class name: Net.")
-    f.write("model class name: Net. \n")
-  elif(MODEL_SEL==1):
-    model =  Net_interpolation(device,start_EP)
-    print("model class name: Net_interpolation.")
-    f.write("model class name: Net_interpolation. \n")
-  elif(MODEL_SEL==2):
-    model = Net2(device,start_EP)
-    print("model class name: Net2.")
-    f.write("model class name: Net2. \n")
-  elif(MODEL_SEL==3):
-    model = Net3(device,start_EP)
-    print("model class name: Net3.")
-    f.write("model class name: Net3. \n")
-  
-  # use previous parameters to train
-  if(start_VerTrain!=0 and start_EP!=0):
-      if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
-        model=loadModelParam(model,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
-  '''      
-  if torch.cuda.device_count() > 1:
-    print("Let's use", torch.cuda.device_count(), "GPUs!")
-    # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
-    model = nn.DataParallel(model)  
-    # model=torch.nn.DataParallel(model)  ## Multi GPU
-  '''
-  model.to(device)  
-  model.train()
-     
-  # model structure # debug
-  struc_chk=DEBUG
-  if struc_chk:
-    print("warning: |||Model graph|||")
-    model_seq=torch.nn.Sequential(*list(model.children())[:])
-    print(model_seq)
-
-  
-  if DEBUG:
-    print("warning: Model's state_dict:")
-    for param_tensor in model.state_dict():
-        print(param_tensor)
-        #print(model.state_dict()[param_tensor]) #init parameters
-        print(model.state_dict()[param_tensor].size()) #weights size
-
-  '''
-  #loss function
-  # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
-  #==> https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html#torch.nn.BCEWithLogitsLoss
-  '''
-  # criterion = nn.BCEWithLogitsLoss() # change criterion
-  criterion = Spco_Loss(device)
-  optimizer = optim.Adam(model.parameters(), init_learning_rate)
-  #optim.Adam(model.parameters(), lr=init_learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=init_weight_decay, amsgrad=False) # optim.SGD(model.parameters(), lr=init_learning_rate, momentum=0.9)
-  lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=3,gamma=0.1)
-
-  # use previous optimizer parameters to train
-  if(start_VerTrain!=0 and start_EP!=0):
-      if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
-        optimizer=loadOPTParam(optimizer,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
-
-  '''
-  # dataset objects initialization
-  # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
-  '''  
-  
-  if(MODEL_SEL>1):
-    ##pretraining data 
-    dataset_type=0
-    rgb_pretrain_dataset=SuperpixelDataset(state_train_test,dataset_type) #Training/RGB dataset
-    pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
-    ##training data 
-    dataset_type=1
-    train_dataset = SuperpixelDataset(state_train_test,dataset_type) #Training/RGBD dataset
-    train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)    
-  else:
-    ##pretraining data 
-    dataset_type=0
-    rgb_pretrain_dataset=SalientObjDataset(state_train_test,dataset_type) #Training/RGB dataset
-    pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
-    ##training data 
-    dataset_type=1
-    train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
-    train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
-
-  #saved init parameters
-  if(start_EP==0):
-      PATH_dir="modelParam_T%d/"%(Ver_Train)
-      if not os.path.exists(PATH_dir):
-          os.makedirs(PATH_dir)  #create PATH_dir
-      epoch=0
-      PATH_file="param_e%02d.pth"%(epoch)
-      PATH=PATH_dir+PATH_file
-      torch.save({
-                  'epoch': epoch,
-                  'model_state_dict': model.state_dict(),
-                  'optimizer_state_dict': optimizer.state_dict(),
-                  }, PATH)  
-  
-  # ##################
-  # data prefetch
-  # https://discuss.pytorch.org/t/how-to-prefetch-data-when-processing-with-gpu/548/17
-  # ##################
-  for epoch in range(start_EP, epochs):  # loop over the dataset multiple times
-  
-      # Debug used #################################
-      if(epoch<16):
-        if(epoch%2==0): #RGB
-          print("::::RGB dataset::::")
-          f.write("::::RGB dataset::::\n")
-          # dataset_type=0
-          loader=pretrain_loader       
-        else: #RGBD
-          print("::::RGBD dataset (Before e15)::::")
-          f.write("::::RGBD dataset (Before e15)::::\n")
-          # dataset_type=1
-          loader=train_loader        
-      else:
-        print("::::RGBD dataset (After e15)::::")
-        f.write("::::RGBD dataset (After e15)::::\n")
-        dataset_type=1
-        loader=train_loader 
-      
-      epoch_n=epoch+1
-      
-      print("::Currernt Epochs: %d" % (epoch_n))
-      f.write("::Currernt Epochs: %d\n" % (epoch_n))
-      running_loss = 0.0
-
-      #--------------------------------------------
-      for i, data_record in enumerate(loader):
-          # data
-          img_data=data_record[0]
-          depth_data=data_record[1]
-          gt_data=data_record[2]          
-          # path
-          img_name=data_record[3][0]
-          gt_path=data_record[4][0] 
-          dep_path=data_record[5][0]          
-          # visualization
-          im_size=data_record[6] # image size
-
-          if(MODEL_SEL>1):
-            sp_map=data_record[7]
-          
+    # model (exitsed)
+    if (Ver_Train==1):
+      MODEL_SEL==0
+    elif (Ver_Train==2):
+      MODEL_SEL==2
+    elif (Ver_Train==3):
+      MODEL_SEL==3
+    elif (Ver_Train==4):
+      MODEL_SEL==1
+    
+    if(start_EP!=0):
+        print("Starting training epochs: %d"%(start_EP))
+    
+    if(Log_update):
+        while os.path.exists("training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,1)):
+            LogVER+=1 #don't cover the previous log  
+            
+    train_log_output="training_T%d_V%d_STATE%d.log"%(start_VerTrain,LogVER,1)        
+    f = open(train_log_output, "w")
+    
+    train_start=time.time()
+    
+    try:
+        
+        if(TRAIN_ON):
+          #::::::::::::::::::::
+          # TRAINING
+          #::::::::::::::::::::
+          print("#::::::::::::::::::::")
+          print("# TRAINING")
+          print("#::::::::::::::::::::")
+          #INPUT_TYPE=1 (pixel)
+          input_mode=0
+          state_train_test=1
+          #datasets RGB pretrain / RGBD training
           '''
-          print("img_data",img_data.shape) 
-          print("depth_data",depth_data.shape)
-          '''
-          # zero the parameter gradients
-          optimizer.zero_grad()
+          INPUT_TYPE=0 #1=pixel, 0=superpixel
+          DATASET_TYPE=1 #1=RGBD, 0=RGB
+          state_train_test=1 #1=Train, 0=Test
+          ''' 
+                
+          ##parameters init states## ==============
+          init_learning_rate=1e-4
+          init_weight_decay=0
+        
           
-          if(MODEL_SEL>1):
-            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
-          else:
-            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
-
+          ##model initialization
+          # old used model
+            # DSS_parallel(device) #(delete)
+            # Net(device,start_EP)
+            # Net_interpolation(device,start_EP) #upsample is interpolation
+          # decide model mode
+          print("Select the model mode: %d"%(MODEL_SEL))
+          f.write("Select the model mode: %d \n"%(MODEL_SEL))
+          if(MODEL_SEL==0):
+            model =  Net(device,start_EP)
+            print("model class name: Net.")
+            f.write("model class name: Net. \n")
+          elif(MODEL_SEL==1):
+            model =  Net_interpolation(device,start_EP)
+            print("model class name: Net_interpolation.")
+            f.write("model class name: Net_interpolation. \n")
+          elif(MODEL_SEL==2):
+            model = Net2(device,start_EP)
+            print("model class name: Net2.")
+            f.write("model class name: Net2. \n")
+          elif(MODEL_SEL==3):
+            model = Net3(device,start_EP)
+            print("model class name: Net3.")
+            f.write("model class name: Net3. \n")
+          
+          # use previous parameters to train
+          if(start_VerTrain!=0 and start_EP!=0):
+              if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
+                print("modelParam_T%d/param_e%02d.pth existed. loaded. "%(start_VerTrain,start_EP))
+                model=loadModelParam(model,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
+              else:
+                print("modelParam_T%d/param_e%02d.pth not existed "%(start_VerTrain,start_EP))
+          '''      
+          if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+            model = nn.DataParallel(model)  
+            # model=torch.nn.DataParallel(model)  ## Multi GPU
+          '''
+          model.to(device)  
+          model.train()
+             
+          # model structure # debug
+          struc_chk=DEBUG
+          if struc_chk:
+            print("warning: |||Model graph|||")
+            model_seq=torch.nn.Sequential(*list(model.children())[:])
+            print(model_seq)
+        
+          
+          if DEBUG:
+            print("warning: Model's state_dict:")
+            for param_tensor in model.state_dict():
+                print(param_tensor)
+                #print(model.state_dict()[param_tensor]) #init parameters
+                print(model.state_dict()[param_tensor].size()) #weights size
+        
+          '''
+          #loss function
+          # https://clay-atlas.com/blog/2020/05/22/pytorch-cn-error-solution-dimension-out-of-range/
+          #==> https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html#torch.nn.BCEWithLogitsLoss
+          '''
+          # criterion = nn.BCEWithLogitsLoss() # change criterion
+          criterion = Spco_Loss(device)
+          optimizer = optim.Adam(model.parameters(), init_learning_rate)
+          #optim.Adam(model.parameters(), lr=init_learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=init_weight_decay, amsgrad=False) # optim.SGD(model.parameters(), lr=init_learning_rate, momentum=0.9)
+          lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=3,gamma=0.1)
+        
+          # use previous optimizer parameters to train
+          if(start_VerTrain!=0 and start_EP!=0):
+              if(os.path.exists("modelParam_T%d/"%(start_VerTrain))):
+                optimizer=loadOPTParam(optimizer,"modelParam_T%d/param_e%02d.pth"%(start_VerTrain,start_EP))
+        
+          '''
+          # dataset objects initialization
+          # https://tianws.github.io/skill/2019/08/27/gpu-volatile/
           '''  
-          print("result",result.shape) 
-          print("b1_result",b1_result.shape) 
-          print("b2_result",b2_result.shape) 
-          print("b3_result",b3_result.shape) 
-          print("b4_result",b4_result.shape) 
-          print("b5_result",b5_result.shape) 
-          print("b6_result",b6_result.shape) 
-          '''
+          
+          if(MODEL_SEL>1):
+            ##pretraining data 
+            dataset_type=0
+            rgb_pretrain_dataset=SuperpixelDataset(state_train_test,dataset_type) #Training/RGB dataset
+            pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
+            ##training data 
+            dataset_type=1
+            train_dataset = SuperpixelDataset(state_train_test,dataset_type) #Training/RGBD dataset
+            train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)    
+          else:
+            ##pretraining data 
+            dataset_type=0
+            rgb_pretrain_dataset=SalientObjDataset(state_train_test,dataset_type) #Training/RGB dataset
+            pretrain_loader = DataLoaderX(rgb_pretrain_dataset, batch_size=batch_size,shuffle=True)
+            ##training data 
+            dataset_type=1
+            train_dataset = SalientObjDataset(state_train_test,dataset_type) #Training/RGBD dataset
+            train_loader = DataLoaderX(train_dataset, batch_size=batch_size,shuffle=True)
+        
+          #saved init parameters
+          if(start_EP==0):
+              PATH_dir="modelParam_T%d/"%(Ver_Train)
+              if not os.path.exists(PATH_dir):
+                  os.makedirs(PATH_dir)  #create PATH_dir
+              epoch=0
+              PATH_file="param_e%02d.pth"%(epoch)
+              PATH=PATH_dir+PATH_file
+              torch.save({
+                          'epoch': epoch,
+                          'model_state_dict': model.state_dict(),
+                          'optimizer_state_dict': optimizer.state_dict(),
+                          }, PATH)  
+          
+          # ##################
+          # data prefetch
+          # https://discuss.pytorch.org/t/how-to-prefetch-data-when-processing-with-gpu/548/17
+          # ##################
+          for epoch in range(start_EP, epochs):  # loop over the dataset multiple times
+          
+              # Debug used #################################
+              if(epoch<16):
+                if(epoch%2==0): #RGB
+                  print("::::RGB dataset::::")
+                  # f.write("::::RGB dataset::::\n")
+                  # dataset_type=0
+                  loader=pretrain_loader       
+                else: #RGBD
+                  print("::::RGBD dataset (Before e15)::::")
+                  # f.write("::::RGBD dataset (Before e15)::::\n")
+                  # dataset_type=1
+                  loader=train_loader        
+              else:
+                print("::::RGBD dataset (After e15)::::")
+                # f.write("::::RGBD dataset (After e15)::::\n")
+                dataset_type=1
+                loader=train_loader 
+              
+              epoch_n=epoch+1
+              
+              print("::Currernt Epochs: %d" % (epoch_n))
+              f.write("Currernt Epochs, %d, " % (epoch_n))
+              running_loss = 0.0
+        
+              #--------------------------------------------
+              for i, data_record in enumerate(loader):
+                  # data
+                  img_data=data_record[0]
+                  depth_data=data_record[1]
+                  gt_data=data_record[2]          
+                  # path
+                  img_name=data_record[3][0]
+                  gt_path=data_record[4][0] 
+                  dep_path=data_record[5][0]          
+                  # visualization
+                  im_size=data_record[6] # image size
+        
+                  if(MODEL_SEL>1):
+                    sp_map=data_record[7]
+                  
+                  '''
+                  print("img_data",img_data.shape) 
+                  print("depth_data",depth_data.shape)
+                  '''
+                  # zero the parameter gradients
+                  optimizer.zero_grad()
+                  
+                  if(MODEL_SEL>1):
+                    result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+                  else:
+                    result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
+        
+                  ##################################
+                  # defined Loss function
+                  ##################################
+                  loss = criterion(epoch_n, result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result , gt_data, img_data, depth_data)
+                  # delete with torch.no_grad():  solve RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn
+                  loss.backward() 
+                  # print("loss",loss)   
+                  optimizer.step()
+          
+                  # print statistics
+                  loss_term=float(loss.item())
+                  running_loss += loss_term
+                  # assert math.isnan(loss_term), "!!! Loss value is nan !!! the error is at image: %s/ loss: %f"%(img_name, loss_term)
+                  # print("**loss: ", loss_term)
+                  if i % 2000 == 1999:    # print every 2000 mini-batches
+                      print('[%d, %5d] loss: %.4f' % (epoch + 1, i + 1, running_loss / 2000))
+                      f.write('loss, %.4f\n' % (running_loss / 2000))
+                      running_loss = 0.0    
+                      # PR curve/ F measure
+                      # https://pytorch.org/ignite/_modules/ignite/metrics/precision.html
+        
+                  ###Visualization
+                  # output get sigmoid ########################
+                  sig_result=torch.sigmoid(result).to(device)
+                  sig_b1_result=torch.sigmoid(b1_result).to(device)
+                  sig_b2_result=torch.sigmoid(b2_result).to(device)
+                  sig_b3_result=torch.sigmoid(b3_result).to(device)
+                  sig_b4_result=torch.sigmoid(b4_result).to(device)
+                  sig_b5_result=torch.sigmoid(b5_result).to(device)
+                  sig_b6_result=torch.sigmoid(b6_result).to(device)
+                  sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
+                  # visualization In the begining and last 
+                  if(epoch < 2 or epoch>epochs*0.8 or epoch==40):
+                    visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
+              #--------------------------------------------------------------------------------------------------------------------------------------------
+              for dataset_type in range(1,4): #dataset_type=1 #SET: 1~3
+                    '''
+                    test_dataset = SalientObjDataset(state_train_test,dataset_type,debug=DEBUG) 
+                    test_loader = DataLoaderX(test_dataset, batch_size=batch_size)
+                    '''
+                    if(MODEL_SEL>1):
+                      test_dataset = SuperpixelDataset(state_train_test,dataset_type) #test / SuperpixelDataset 
+                      test_loader = DataLoaderX(test_dataset, batch_size=batch_size,shuffle=True)    
+                    else:
+                      test_dataset = SalientObjDataset(state_train_test,dataset_type) #test / SalientObjDataset (pixel)
+                      test_loader = DataLoaderX(test_dataset, batch_size=batch_size,shuffle=True)
+                    
+                    # testing results
+                    for i, data_record in enumerate(test_loader):
+                        # test input data
+                        img_data=data_record[0]
+                        depth_data=data_record[1]
+                        gt_data=data_record[2]          
+                        # path
+                        img_name=data_record[3][0]
+                        gt_path=data_record[4][0] 
+                        dep_path=data_record[5][0]          
+                        # visualization
+                        im_size=data_record[6] # image size
+                
+                        # superpixel map (depend on model=dataset type)
+                        if(MODEL_SEL>1):
+                            sp_map=data_record[7]
+                            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path, sp_map)
+                        else:
+                            result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result = model(img_data, depth_data, state_train_test, img_name, dep_path)
+                
+                        # results=[result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result]   
+                        # output get sigmoid ########################
+                        sig_result=torch.sigmoid(result).to(device)
+                        sig_b1_result=torch.sigmoid(b1_result).to(device)
+                        sig_b2_result=torch.sigmoid(b2_result).to(device)
+                        sig_b3_result=torch.sigmoid(b3_result).to(device)
+                        sig_b4_result=torch.sigmoid(b4_result).to(device)
+                        sig_b5_result=torch.sigmoid(b5_result).to(device)
+                        sig_b6_result=torch.sigmoid(b6_result).to(device)
+                        
+                        sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
+                        
+                        # visualization
+                        visualize_results(2, Ver_Train, t_epoch, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)
+              #--------------------------------------------------------------------------------------------------------------------------------------------
+        
+              #Save model parameters
+              # https://pytorch.org/tutorials/beginner/saving_loading_models.html#save
+              saveModelParam(Ver_Train, epoch_n, model, optimizer, loss)
+          
+          print('Finished Training')
+          train_end=time.time()
+          f.write('Training Execution time: %f secs\n'%(train_end-train_start))
+          f.close()
+          
+          
+    except: #disk quota out
+          print('Catch exception, training stop.')
+          train_end=time.time()
+          f.write('Catch exception, Training Execution time stop at: %f secs\n'%(train_end-train_start))
+          f.close()      
 
-          ##################################
-          # defined Loss function
-          ##################################
-          loss = criterion(epoch_n, result, b1_result, b2_result, b3_result, b4_result, b5_result, b6_result , gt_data, img_data, depth_data)
-          # delete with torch.no_grad():  solve RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn
-          loss.backward() 
-          # print("loss",loss)   
-          optimizer.step()
-  
-          # print statistics
-          loss_term=float(loss.item())
-          running_loss += loss_term
-          # assert math.isnan(loss_term), "!!! Loss value is nan !!! the error is at image: %s/ loss: %f"%(img_name, loss_term)
-          # print("**loss: ", loss_term)
-          if i % 2000 == 1999:    # print every 2000 mini-batches
-              print('[%d, %5d] loss: %.4f' % (epoch + 1, i + 1, running_loss / 2000))
-              f.write('[%d, %5d] loss: %.4f\n' % (epoch + 1, i + 1, running_loss / 2000))
-              running_loss = 0.0    
-              # PR curve/ F measure
-              # https://pytorch.org/ignite/_modules/ignite/metrics/precision.html
-
-          ###Visualization
-          # output get sigmoid ########################
-          sig_result=torch.sigmoid(result).to(device)
-          sig_b1_result=torch.sigmoid(b1_result).to(device)
-          sig_b2_result=torch.sigmoid(b2_result).to(device)
-          sig_b3_result=torch.sigmoid(b3_result).to(device)
-          sig_b4_result=torch.sigmoid(b4_result).to(device)
-          sig_b5_result=torch.sigmoid(b5_result).to(device)
-          sig_b6_result=torch.sigmoid(b6_result).to(device)
-          sig_results=[sig_result, sig_b1_result, sig_b2_result, sig_b3_result, sig_b4_result, sig_b5_result, sig_b6_result]
-          # visualization In the begining and last 
-          if(epoch < 2 or epoch>epochs*0.8 or epoch==40):
-            visualize_results(state_train_test, Ver_Train, epoch_n, (im_size[1],im_size[0]), sig_results, img_name, gt_path, dep_path)  
-
-
-      #Save model parameters
-      # https://pytorch.org/tutorials/beginner/saving_loading_models.html#save
-      saveModelParam(Ver_Train, epoch_n, model, optimizer, loss)
-  
-  print('Finished Training')
-  train_end=time.time()
-  f.write('Training Execution time: %f secs\n'%(train_end-train_start))
-  f.close()
   
     
 # delete unnessery model !!
-delModelParam(Ver_Train)
+# delModelParam(Ver_Train)
+
 ################################################################################################
 ################################################################################################
 ################################################################################################
@@ -503,10 +577,10 @@ if(TEST_ON):
   # loading parameters  
   state_train_test=0
   if(Log_update):
-    while os.path.exists("testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,state_train_test)):
+    while os.path.exists("testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,0)):
       LogVER+=1 #don't cover the previous log  
     
-  test_log_output="testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,state_train_test)
+  test_log_output="testing_T%d_V%d_model%d_STATE%d.log"%(start_VerTrain,LogVER,t_epoch,0)
   f = open(test_log_output, "w")
    
   ##model initialization
@@ -532,9 +606,10 @@ if(TEST_ON):
   # model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
   if os.path.exists(PATH):
     # model_test.load_state_dict(torch.load(PATH)['model_state_dict'])
-    checkpoint = torch.load(PATH)
-    model_test.load_state_dict(checkpoint['model_state_dict'])
-    c_epoch = checkpoint['epoch']
+    #checkpoint = torch.load(PATH)
+    #model_test.load_state_dict(checkpoint['model_state_dict'])
+    #c_epoch = checkpoint['epoch']
+    model_test=loadModelParam(model_test,"modelParam_T%d/param_e%02d.pth"%(Ver_Train,t_epoch))
     print("checkpoint epoch: %d"%(c_epoch))
   else:
     print("the model parameter [%s] not exist."%(PATH))
